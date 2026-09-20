@@ -1,0 +1,44 @@
+{
+  "product-catalog.docx": {
+    "audience": ["sales", "customer_service"],
+    "last_updated": "2026-09-01",
+    "source_system": "internal_docs",
+    "route": "rag"
+  },
+  "price-list.csv": {
+    "audience": ["sales"],
+    "last_updated": "2026-09-01",
+    "source_system": "internal_docs",
+    "route": "structured_query"
+  },
+  "installation-guides.md": {
+    "audience": ["sales", "customer_service", "trade_team"],
+    "last_updated": "2026-07-20",
+    "source_system": "internal_docs",
+    "route": "rag"
+  },
+  "returns-and-warranty-policy.pdf": {
+    "audience": ["sales", "customer_service"],
+    "last_updated": "2026-08-15",
+    "source_system": "internal_docs",
+    "route": "rag"
+  },
+  "customer-faq.md": {
+    "audience": ["sales", "customer_service"],
+    "last_updated": "2026-09-10",
+    "source_system": "internal_docs",
+    "route": "rag"
+  },
+  "staff-troubleshooting-notes.md": {
+    "audience": ["customer_service", "trade_team"],
+    "last_updated": "2026-08-28",
+    "source_system": "internal_docs",
+    "route": "rag"
+  },
+  "supplier-bulletin-history.pdf": {
+    "audience": ["sales", "trade_team"],
+    "last_updated": "2025-06-01",
+    "source_system": "supplier_external",
+    "route": "rag"
+  }
+}
