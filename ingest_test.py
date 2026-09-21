@@ -1,4 +1,8 @@
 import chromadb
+import anthropic
+from dotenv import load_dotenv
+load_dotenv()
+
 # Script to read and split the customer FAQ markdown file into chunks
 with open("data/customer-faq.md") as f:
     text = f.read()
@@ -6,9 +10,6 @@ with open("data/customer-faq.md") as f:
 chunks = text.split("\n\n")
 chunks = [chunk.strip() for chunk in chunks if chunk.strip()]
 chunks = [chunk for chunk in chunks if chunk.startswith("**Q:")]
-
-
-print(len(chunks))
 
 
 # Initialize ChromaDB client and collection
@@ -26,10 +27,9 @@ collection.upsert(
 )
 
 print(collection.count())  # confirms how many items are in the collection right before we query it
-
+question = "Is a dripping tap covered by warranty?"
 results = collection.query(
-    query_texts=["Is a dripping tap covered by warranty?"],
-    # query_texts=[ "How do I bake bread?"],
+    query_texts=[question],
     n_results=3
 )
 DISTANCE_THRESHOLD = 1.8
@@ -39,7 +39,24 @@ relevant_chunks = [
     if distance <= DISTANCE_THRESHOLD
 ]
 
-print(len(relevant_chunks))
-for chunk in relevant_chunks:
-    print("---")
-    print(chunk)
+context = "\n\n".join(relevant_chunks)
+
+anthropic_client = anthropic.Anthropic()
+
+prompt = f"""Answer the customer's question using only the context below. If the context doesn't contain the answer, say you don't know.
+
+Context:
+{context}
+
+Question: {question}"""
+
+
+response = anthropic_client.messages.create(
+    model="claude-haiku-4-5-20251001",
+    max_tokens=500,
+    messages=[
+        {"role": "user", "content": prompt}
+    ]
+)
+
+print(response.content[0].text)

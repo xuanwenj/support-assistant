@@ -51,7 +51,7 @@ Choose anthropic SDK over CrewAI, write a handful of lines: send a prompt, get a
 **Ingestion** — your loader (md/pdf/docx → plain text), which we just talked through.
 **Chunking** — splitting that text into smaller pieces before embedding. This is a real design decision: too large and retrieval gets imprecise (a chunk about "returns" also drags in unrelated SLA text); too small and you lose context. There are strategies (fixed character/token count, paragraph-based, with or without overlap between chunks) and no single right answer — it depends on your docs.
 **Embedding + storage** — turning each chunk into a vector and writing it into a Chroma collection, along with metadata (which file it came from, maybe a chunk index) so you can cite sources later.
-Retrieval — given a user's question, embed the question the same way, ask Chroma for the top-k most similar chunks.
+**Retrieval** — given a user's question, embed the question the same way, ask Chroma for the top-k most similar chunks.
 **Augmentation + generation** — stuff those retrieved chunks into a prompt alongside the user's question, send it to Claude via the anthropic SDK, get back an answer grounded in your docs.
 
 ## Problems
@@ -63,8 +63,7 @@ Problem: The 3rd result returned was the FAQ file's intro paragrap ("Collected f
 
 Root Cause: Chunking splits on `---`, which treats the intro paragraph as its own standalone chunk — same status as any real Q&A pair, even though it's metadata/description text, not answerable content. n_results=3 also forces exactly 3 results regardless of whether a 3rd relevant match exists.
 
-Solution: Filter out non-content paragraphs before chunking (e.g. skip segments
-without a "Q:" marker)
+Solution: Filter out non-content paragraphs before chunking (e.g. skip segments without a "Q:" marker)
 
 **The retriveled chunks are not always highly related to the query**
 Context: Testing retrieval with n_results=3 against customer-faq.md.
