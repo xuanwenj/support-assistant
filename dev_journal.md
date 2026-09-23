@@ -81,3 +81,9 @@ Options Considered:
 
 - Inspect distance scores to set a relevance threshold
 - Add an AI reranking step to re-score retrieved chunks
+
+## Upgrade the RAG loop
+
+- Wrap the chunks and question with Claude AI, return a response
+- Implement multi-formats ingestion with a dispachter
+-
