@@ -1,6 +1,6 @@
 # Implementation Log
 
-Record of what was actually built: plan, structure, content, result. One entry per concrete implementation, appended in order. `dev_journal.md` holds the outline (current step, decisions, problems) — details belong here.
+Record of what was actually built: plan, structure, content, result. One entry per concrete implementation, appended in order. `dev_journal.md` holds the outline (current step, decisions, problems) — details belong here. Frontend features are logged separately in `frontend_implementation_log.md`.
 
 Entry template: **Plan** (what and why) · **Structure** (files, functions, signatures) · **Content** (how it works, notable details) · **Result** (what was verified, known gaps).
 
