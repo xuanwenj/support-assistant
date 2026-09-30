@@ -166,4 +166,58 @@ Inside each function, the argument gets passed to the database driver as a param
 2. A connection helper
 3. Write fixed query functions
 4. test the functions
-5. wire up Claude tool-use,
+5. wire up Claude tool-use
+
+**Steps of wiring up Claude tool-use**
+
+1. Describe the 4 tools to Claude
+   For each function (get_order, get_orders_by_username, get_product, retrieve_relevant_chunks), you write a schema: its name, a plain-English description of what it does and when to use it, and what argument(s) it expects. This is literally what Claude reads to decide which tool fits a given question — the quality of the description matters a lot here, since it's the only thing standing in for "read the source code."
+
+2. Build a dispatch map
+   A dictionary from tool name (string) → the actual Python function. When Claude says "call get_order with order_id=ORD-1003," your code needs to turn that string "get_order" into an actual call to your get_order function. This is just {"get_order": get_order, "get_orders_by_username": get_orders_by_username, ...} — a lookup table, nothing clever.
+
+3. Write the system prompt
+   Tell Claude what it is and how to behave: it's a support assistant, it must answer only using what the tools return (not general knowledge or guesses), and it should use the tools rather than trying to answer from the question alone. This is the same grounding instinct as your RAG prompt ("answer using only the context below"), just extended to cover tool results too.
+
+4. The loop itself
+   This is the part that's genuinely new (not just "one call" like RAG's generation step):
+
+Send the question + tool schemas + system prompt to Claude.
+Look at the response. If it contains one or more tool_use blocks, that's Claude asking to call specific tools with specific arguments.
+For each one, look it up in your dispatch map, call the real function, get the result.
+Send those results back to Claude as tool_result blocks, appended to the conversation.
+Call Claude again with the updated conversation. Repeat from step 2.
+When a response comes back with no tool_use blocks — just plain text — that's the final answer, and the loop ends.
+This is what lets compound questions work without any special-casing: for "was Grace Kim's return priced correctly," Claude might call get_orders_by_username first, see the order, then in the next turn decide it also needs retrieve_relevant_chunks for the bundle-return policy — the loop just keeps going until it has what it needs.
+
+5. A concrete snag you'll hit: tool results aren't JSON-safe as-is
+   You already saw this — your query functions return Decimal and datetime.date values (from unit_price_charged, order_date). Tool results have to be sent back to Claude as text/JSON, and neither of those types serializes automatically. You'll need to convert them (e.g. to strings) before packing a result into a tool_result block.
+
+6. A safety cap on iterations
+   Cap the loop at some max number of rounds (e.g. 5). If something goes wrong and Claude keeps requesting tools without ever settling on an answer, you don't want it looping forever.
+
+7. Test both solo and compound questions
+   Solo: "what's the status of order ORD-1005" (one tool call, done). Compound: "was Grace Kim's return priced correctly" (customer/order lookup, then RAG for policy, then synthesis) — this is the case that actually proves the loop is doing more than a single function call.
+
+# Progress outline
+
+Implementation details (plan, structure, content, results) live in [implementation_log.md](implementation_log.md). This file only tracks the current step, decisions and problems.
+
+**Current step:** Phase 2, structured-query steps 1–5 done (driver, connection helper, query functions, tests, Claude tool-use router). Next: remaining lookup functions (customer by email/phone), update CLAUDE.md/ARCHITECTURE.md for the router, then the Next.js frontend.
+
+**Decisions**
+
+- Claude routes free-text questions (RAG vs. SQL, chained when needed) via tool use. This supersedes the "simple SQL retrieval" note above; a dedicated staff lookup form can still call the functions directly without an LLM.
+- RAG is exposed to the router as retrieval only (raw chunks). The standalone RAG script keeps its own generation step.
+- Ingestion and retrieval split into separate files so the router can import retrieval without re-running ingestion.
+- Lookup feature is for internal staff; lookups by name, email, phone (membership dropped).
+- Build 4 tools first (`get_order`, `get_orders_by_username`, `get_product`, document search); the other lookups wait until the loop is proven.
+- Manual tool-use loop with a 5-round cap rather than the SDK tool runner.
+- Router model set to Haiku 4.5 for now (cheaper and faster; live tests still pass).
+
+**Problems**
+
+- Supabase direct connection is IPv6-only and didn't resolve → use the Session pooler connection string.
+- venv `pip` script has the old folder name baked in → use `python -m pip`; the shell's `python` can resolve to conda → call `.venv/bin/python`.
+- `get_orders_by_username` had several bugs (wrong column, ambiguous join column, closed cursor, returned one order) → fixed.
+- Schema and seed SQL aren't saved in the repo yet, so reseeding isn't reproducible.
