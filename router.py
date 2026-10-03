@@ -1,3 +1,5 @@
+import json
+
 import anthropic
 from dotenv import load_dotenv
 load_dotenv()
@@ -20,10 +22,20 @@ def _final_text(response):
     return "".join(block.text for block in response.content if block.type == "text")
 
 
+def _add_sources(sources, tool_name, content):
+    """Record the source files of retrieved passages, in order, without duplicates."""
+    if tool_name != "search_documents":
+        return
+    for passage in json.loads(content):
+        if passage["source_file"] not in sources:
+            sources.append(passage["source_file"])
+
+
 def answer_question(question, client=None, max_iterations=MAX_ITERATIONS):
     client = client or anthropic.Anthropic()
     messages = [{"role": "user", "content": question}]
     tool_calls = []
+    sources = []
 
     for _ in range(max_iterations):
         response = client.beta.messages.create(
@@ -37,9 +49,9 @@ def answer_question(question, client=None, max_iterations=MAX_ITERATIONS):
         )
 
         if response.stop_reason == "refusal":
-            return {"answer": "The request was declined by the model's safety policy.", "tool_calls": tool_calls}
+            return {"answer": "The request was declined by the model's safety policy.", "tool_calls": tool_calls, "sources": sources}
         if response.stop_reason != "tool_use":
-            return {"answer": _final_text(response), "tool_calls": tool_calls}
+            return {"answer": _final_text(response), "tool_calls": tool_calls, "sources": sources}
 
         # Echo the full content back (not just text) so any thinking blocks stay intact.
         messages.append({"role": "assistant", "content": response.content})
@@ -51,6 +63,8 @@ def answer_question(question, client=None, max_iterations=MAX_ITERATIONS):
                 continue
             tool_calls.append((block.name, block.input))
             content, is_error = run_tool(block.name, block.input)
+            if not is_error:
+                _add_sources(sources, block.name, content)
             tool_results.append({
                 "type": "tool_result",
                 "tool_use_id": block.id,
@@ -62,6 +76,7 @@ def answer_question(question, client=None, max_iterations=MAX_ITERATIONS):
     return {
         "answer": f"Stopped after {max_iterations} tool rounds without reaching an answer.",
         "tool_calls": tool_calls,
+        "sources": sources,
     }
 
 
@@ -69,3 +84,4 @@ if __name__ == "__main__":
     result = answer_question("What's the status of order ORD-1005?")
     print(result["answer"])
     print("tools used:", [name for name, _ in result["tool_calls"]])
+    print("sources:", result["sources"])

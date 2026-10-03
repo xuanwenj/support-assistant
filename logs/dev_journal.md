@@ -203,7 +203,7 @@ This is what lets compound questions work without any special-casing: for "was G
 
 Implementation details (plan, structure, content, results) live in [implementation_log.md](implementation_log.md). This file only tracks the current step, decisions and problems.
 
-**Current step:** Phase 2, structured-query steps 1–5 done (driver, connection helper, query functions, tests, Claude tool-use router). Next: remaining lookup functions (customer by email/phone), update CLAUDE.md/ARCHITECTURE.md for the router, then the Next.js frontend (scaffolded; routes `/` and `/lookup` with shared nav done, next: question box, FastAPI `/ask` endpoint, proxy route handler).
+**Current step:** Phase 2, structured-query steps 1–5 done (driver, connection helper, query functions, tests, Claude tool-use router). Next: remaining lookup functions (customer by email/phone), update CLAUDE.md/ARCHITECTURE.md for the router, then the Next.js frontend (scaffolded; routes, nav and `QuestionBox` client component done; FastAPI `POST /ask` with sources done; next: proxy route handler `app/api/ask/route.ts`, wire the box to it, show answer and citations).
 
 **Decisions**
 
@@ -222,3 +222,5 @@ Implementation details (plan, structure, content, results) live in [implementati
 - venv `pip` script has the old folder name baked in → use `python -m pip`; the shell's `python` can resolve to conda → call `.venv/bin/python`.
 - `get_orders_by_username` had several bugs (wrong column, ambiguous join column, closed cursor, returned one order) → fixed.
 - Schema and seed SQL aren't saved in the repo yet, so reseeding isn't reproducible.
+- **OPEN: no authorization on `POST /ask`.** `CLAUDE.md` requires authorization checks on customer/order data, but `api.py` has none, so anyone who can reach port 8000 can query any customer or order through the router. Fine only while bound to `127.0.0.1` in development. Needs a decision before anything is shared or deployed: who the staff users are, how they authenticate (e.g. Supabase Auth or a shared secret between the Next.js server and FastAPI as a minimum), and which accounts may see which customers. The checks must be enforced in the backend, not the frontend.
+- `sources` returned by `/ask` are documents retrieved, not necessarily documents the answer used (e.g. product-catalog.docx listed while the answer cited only the FAQ). Acceptable for now; revisit if it misleads.

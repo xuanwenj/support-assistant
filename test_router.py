@@ -89,7 +89,7 @@ class LoopMechanicsTests(unittest.TestCase):
 
         result = router.answer_question("hi", client=client)
 
-        self.assertEqual(result, {"answer": "Hello", "tool_calls": []})
+        self.assertEqual(result, {"answer": "Hello", "tool_calls": [], "sources": []})
         self.assertEqual(len(client.calls), 1)
         self.assertEqual({t["name"] for t in client.calls[0]["tools"]}, set(TOOL_FUNCTIONS))
 
@@ -141,6 +141,42 @@ class LoopMechanicsTests(unittest.TestCase):
                          ["get_orders_by_username", "search_documents"])
         self.assertEqual(len(client.calls), 3)
         self.assertEqual(len(client.calls[2]["messages"]), 5)
+
+    def test_sources_are_collected_from_document_search_only(self):
+        client = FakeClient([
+            tool_response(("t1", "search_documents", {"question": "returns"}),
+                          ("t2", "get_product", {"product_code": "PC-101"})),
+            tool_response(("t3", "search_documents", {"question": "warranty"})),
+            text_response("See policy."),
+        ])
+        passages = {
+            "returns": [{"text": "a", "source_file": "returns_policy.pdf", "distance": 0.5},
+                        {"text": "b", "source_file": "faq.md", "distance": 0.7}],
+            "warranty": [{"text": "c", "source_file": "returns_policy.pdf", "distance": 0.6}],
+        }
+
+        with patch.dict(TOOL_FUNCTIONS, {"search_documents": lambda question: passages[question],
+                                         "get_product": lambda product_code: {"source_file": "not_a_doc"}}):
+            result = router.answer_question("policy?", client=client)
+
+        self.assertEqual(result["sources"], ["returns_policy.pdf", "faq.md"])
+
+    def test_no_sources_when_search_finds_nothing_or_fails(self):
+        client = FakeClient([
+            tool_response(("t1", "search_documents", {"question": "x"})),
+            tool_response(("t2", "search_documents", {"question": "y"})),
+            text_response("Nothing found."),
+        ])
+
+        def search(question):
+            if question == "y":
+                raise RuntimeError("chroma down")
+            return []
+
+        with patch.dict(TOOL_FUNCTIONS, {"search_documents": search}):
+            result = router.answer_question("policy?", client=client)
+
+        self.assertEqual(result["sources"], [])
 
     def test_tool_error_is_reported_to_the_model_and_loop_continues(self):
         client = FakeClient([

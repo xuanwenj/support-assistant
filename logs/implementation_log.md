@@ -80,3 +80,23 @@ Entry template: **Plan** (what and why) · **Structure** (files, functions, sign
 - System prompt: internal-staff support assistant; answer only from tool results; cite the source file for document content; call several tools when needed; say so plainly when nothing is found.
 
 **Result.** 17 tests pass. 12 offline (tool schemas match dispatch map, Decimal/date serialization, not-found results, unknown tool, error results, direct answer, result fed back with matching `tool_use_id`, parallel calls in one message, chaining across rounds, tool error continues the loop, iteration cap, refusal). 5 live (~137 s total on Opus 5.5, ~18 s for the whole suite on Haiku 4.5, all still passing; the server-side fallback parameter is accepted by Haiku): real ORD-1003 serializes with bundle prices; order status uses `get_order`; unknown order reported as not found; policy question uses only `search_documents`; compound question uses `get_orders_by_username` and `search_documents`. Read the compound answer: it chained 4 calls, cited sources, and stated it couldn't verify the refund because the database has no return record. **Not built yet:** `get_customer`, `get_customer_by_email`, `get_customer_by_phone`, `get_orders_for_customer`.
+
+---
+
+## 5. HTTP layer (api.py) and source tracking in the router
+
+**Plan.** The Next.js frontend needs an HTTP endpoint over `answer_question()`, and answers from documents must show their source files. The router returned only `(name, input)` pairs for tool calls, so it had no source data to hand back.
+
+**Structure.**
+- `api.py`: FastAPI app. `POST /ask` takes `{"question": str}` (1–2000 chars, stripped, blank rejected with 422) and returns `{"answer", "tools_used", "sources"}`. `GET /health`.
+- `router.py`: new `_add_sources(sources, tool_name, content)`; `answer_question` now returns `{"answer", "tool_calls", "sources"}` on every exit path (normal, refusal, iteration cap).
+- `test_api.py` (5 offline tests) and 3 new offline tests in `test_router.py`. `fastapi` installed into `.venv` (there is no `requirements.txt` yet).
+
+**Content.**
+- `sources` is the deduplicated, ordered list of `source_file` values from successful `search_documents` results. Other tools and failed searches contribute nothing, so no citation is invented.
+- **`sources` means documents retrieved, not documents the answer relied on.** Live check: for "Is a dripping tap covered by warranty?" it returned `customer-faq.md` and `product-catalog.docx` while the answer cited only the FAQ. A stricter version would need the model to report which sources it used (e.g. a structured final answer).
+- `/ask` is a plain `def` so FastAPI runs the blocking call in a worker thread. No CORS middleware, since only the Next.js server calls it (proxy design); run it bound to `127.0.0.1`.
+- PII: no logging of questions or answers; `tools_used` returns tool names only (inputs hold customer names and order IDs); failures return a generic 502 with no exception text.
+
+**Result.** 24 tests pass offline (5 skipped live tests unchanged). Live through uvicorn: ORD-1005 question returned `tools_used: ["get_order"]`, `sources: []`; the warranty question returned `["search_documents"]` with the two source files above; an empty question returned 422.
+**Known gaps:** no authorization on `/ask` (see dev journal); `sources` over-reports as noted above.
