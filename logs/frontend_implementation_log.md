@@ -99,4 +99,23 @@ Proxy:   Browser (:3000) ──same-origin──>  Next.js route handler ──s
 
 ---
 
+## 2026-10-03: Server/client boundary with QuestionBox (step 3)
+
+**Plan.** Build a small interactive component (`useState` + input) and deliberately render it without `"use client"` to see the server/client boundary fail, then fix it. Goal: understand where the boundary goes, not just make the error disappear.
+
+**Structure.**
+- `app/components/QuestionBox.tsx`: input bound to `useState`, echoes "You typed: ...". Starts with `"use client"` after the fix.
+- `app/page.tsx`: stays a server component; imports `QuestionBox` via the `@/` path alias (rooted at `frontend/`) and renders it under the heading.
+
+**Content.**
+- Why the error: every component in the App Router is a server component unless marked otherwise. Server components render once on the server and ship no JS to the browser, so they cannot hold state or handle events. `useState` without `"use client"` therefore fails.
+- The fix is the `"use client"` directive at the top of the file that needs the hook. It marks a **boundary**: that file and everything it imports are bundled for the browser, while its parent stays on the server.
+- **Rule: keep the boundary as low in the tree as possible.** Put `"use client"` on the smallest interactive leaf (the question box), not on `page.tsx` or `layout.tsx`. Everything above the boundary stays server-rendered and sends no JS; everything below it goes into the client bundle. Marking a page or layout "to make the error go away" would pull its whole subtree into the bundle.
+- Server components can import and render client components, and can pass them serializable props. A client component cannot import a server component, but it can receive one as `children`.
+- Why this matters for the project: the question box needs state (typed text, loading, answer, error), so it is a client component. The headings, nav and layout do not, so they stay on the server.
+
+**Result.** The error appeared without the directive and went away with it, and `QuestionBox` works under a server-component page. Known gaps: it is only an input with an echo line so far (no submit, no backend call); the comment on line 1 of `QuestionBox.tsx` says `components/QuestionBox.tsx` but the file is at `app/components/QuestionBox.tsx`. Next: step 4, a FastAPI `POST /ask` endpoint wrapping `answer_question()`, then wiring the box to it through a proxy route handler.
+
+---
+
 No further implementation entries yet.
