@@ -203,7 +203,7 @@ This is what lets compound questions work without any special-casing: for "was G
 
 Implementation details (plan, structure, content, results) live in [implementation_log.md](implementation_log.md). This file only tracks the current step, decisions and problems.
 
-**Current step:** Phase 2, structured-query steps 1–5 done (driver, connection helper, query functions, tests, Claude tool-use router). Next: remaining lookup functions (customer by email/phone), update CLAUDE.md/ARCHITECTURE.md for the router, then the Next.js frontend.
+**Current step:** Phase 2, structured-query steps 1–5 done (driver, connection helper, query functions, tests, Claude tool-use router). Next: remaining lookup functions (customer by email/phone), update CLAUDE.md/ARCHITECTURE.md for the router, then the Next.js frontend (scaffolded; routes `/` and `/lookup` with shared nav done, next: question box, FastAPI `/ask` endpoint, proxy route handler).
 
 **Decisions**
 
@@ -214,6 +214,7 @@ Implementation details (plan, structure, content, results) live in [implementati
 - Build 4 tools first (`get_order`, `get_orders_by_username`, `get_product`, document search); the other lookups wait until the loop is proven.
 - Manual tool-use loop with a 5-round cap rather than the SDK tool runner.
 - Router model set to Haiku 4.5 for now (cheaper and faster; live tests still pass).
+- Frontend: Next.js in `frontend/`, browser talks to a Next.js route handler that proxies to FastAPI (no CORS, backend URL stays server-only). Working style: user writes the code, Claude reviews and supplies snippets on request. CORS notes are in [frontend_implementation_log.md](frontend_implementation_log.md).
 
 **Problems**
 
