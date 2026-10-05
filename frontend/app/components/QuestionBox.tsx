@@ -50,25 +50,25 @@ export default function QuestionBox() {
           onChange={(e) => setQuestion(e.target.value)}
           placeholder="Ask a question..."
           maxLength={2000}
-          className="flex-1 rounded border px-3 py-2"
+          className="flex-1 rounded border bg-transparent px-3 py-2"
         />
         <button
           type="submit"
           disabled={loading || question.trim() === ""}
-          className="rounded bg-black px-4 py-2 text-white disabled:opacity-50"
+          className="rounded bg-black px-4 py-2 text-white disabled:opacity-50 dark:bg-white dark:text-black"
         >
           {loading ? "Asking..." : "Ask"}
         </button>
       </form>
 
       {loading && (
-        <p role="status" className="mt-4 text-zinc-600">
+        <p role="status" className="mt-4 text-zinc-600 dark:text-zinc-400">
           Looking through the documents and order data. This can take several seconds...
         </p>
       )}
 
       {error && (
-        <p role="alert" className="mt-4 text-red-600">
+        <p role="alert" className="mt-4 text-red-600 dark:text-red-400">
           {error}
         </p>
       )}
@@ -77,7 +77,7 @@ export default function QuestionBox() {
         <div className="mt-4">
           <MarkdownAnswer>{result.answer}</MarkdownAnswer>
           {result.sources.length > 0 && (
-            <div className="mt-4 text-sm text-zinc-600">
+            <div className="mt-4 text-sm text-zinc-600 dark:text-zinc-400">
               <p className="font-medium">Sources</p>
               <ul className="list-disc pl-5">
                 {result.sources.map((source) => (

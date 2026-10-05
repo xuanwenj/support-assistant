@@ -203,7 +203,7 @@ This is what lets compound questions work without any special-casing: for "was G
 
 Implementation details (plan, structure, content, results) live in [implementation_log.md](implementation_log.md). This file only tracks the current step, decisions and problems.
 
-**Current step:** Phase 2, structured-query steps 1–5 done (driver, connection helper, query functions, tests, Claude tool-use router). Next: remaining lookup functions (customer by email/phone), update CLAUDE.md/ARCHITECTURE.md for the router, then the Next.js frontend (scaffolded; routes, nav and `QuestionBox` client component done; FastAPI `POST /ask` with sources done; proxy route handler `app/api/ask/route.ts` and the wired question box with answer and sources done and checked in the browser; Markdown rendering of answers done with `react-markdown`; next: the `/lookup` page, authorization).
+**Current step:** Phase 2, structured-query steps 1–5 done (driver, connection helper, query functions, tests, Claude tool-use router). Next: remaining lookup functions (customer by email/phone), update CLAUDE.md/ARCHITECTURE.md for the router, then the Next.js frontend (scaffolded; routes, nav and `QuestionBox` client component done; FastAPI `POST /ask` with sources done; proxy route handler `app/api/ask/route.ts` and the wired question box with answer and sources done and checked in the browser; Markdown rendering of answers done with `react-markdown`; light/dark theme toggle in the nav done; next: the `/lookup` page, authorization).
 
 **Decisions**
 
@@ -217,6 +217,7 @@ Implementation details (plan, structure, content, results) live in [implementati
 - Frontend: Next.js in `frontend/`, browser talks to a Next.js route handler that proxies to FastAPI (no CORS, backend URL stays server-only). Working style: user writes the code, Claude reviews and supplies snippets on request. CORS notes are in [frontend_implementation_log.md](frontend_implementation_log.md).
 - Frontend renders answers as Markdown (`react-markdown` + `remark-gfm`) with raw HTML and images disabled, because answers are LLM output from untrusted documents.
 - Frontend double submit: block while a request is in flight (disabled button plus an early return in the handler) instead of cancel-and-replace, because aborting in the browser doesn't stop the paid backend call.
+- Frontend theme: a two-state toggle (no "system" option), class-based dark mode with the choice stored in `localStorage` and the OS preference as the default; an inline script sets the class before first paint. No theme library.
 
 **Problems**
 

@@ -166,4 +166,27 @@ Proxy:   Browser (:3000) ──same-origin──>  Next.js route handler ──s
 
 ---
 
+## 2026-10-05: Light/dark theme toggle
+
+**Plan.** Add a two-state (light/dark) toggle in the top-right of the nav. It follows the OS until the user clicks, then remembers the choice. Previously dark mode only followed `prefers-color-scheme`, with no user control.
+
+**Structure.**
+- `app/globals.css`: `@custom-variant dark` so Tailwind `dark:` classes follow a `.dark` class on `<html>`; the media query became a `.dark` variable block; a 0.3 s colour transition on body, nav, input and button, only under `prefers-reduced-motion: no-preference`.
+- `app/components/ThemeToggle.tsx` (new client component): a `<button>` with inline sun and moon SVGs that cross-fade, scale and rotate.
+- `app/layout.tsx`: toggle at the right end of the nav (`ml-auto`), `suppressHydrationWarning` on `<html>`, and an inline `<head>` script that sets the class before first paint.
+- `QuestionBox.tsx`, `MarkdownAnswer.tsx`, `lookup/page.tsx`: `dark:` variants for the black submit button, grey and red text and the link colour; the input got a transparent background.
+
+**Content.**
+- The `<html>` `dark` class is the single source of truth. `ThemeToggle` reads it with `useSyncExternalStore` (a `MutationObserver` on the class) instead of copying it into state, which avoids a hydration mismatch and a flash of the wrong icon. The server snapshot is "light".
+- The inline script runs before paint: saved choice wins, otherwise the OS preference. It is in a `try/catch` because storage can be blocked, and the toggle's own write is guarded too.
+- Accessibility: native `<button type="button">` (Enter and Space work), `aria-label` that says what the click will do, `aria-pressed`, icons `aria-hidden`, a `focus-visible` outline, and `motion-reduce` disables the icon animation.
+- No icon library and no theme library.
+
+**Result.**
+- `npm run lint` and `npm run build` pass (needed `npm ci` first: this worktree had no `node_modules`).
+- Browser (port 3005): the toggle sits top-right; Enter and Space each toggle it; `aria-label` and `aria-pressed` update; the choice is saved in `localStorage` and survives a full page load and navigation to `/lookup`; the unavailable-backend error and an answer with a heading, list, code, link and sources are legible in dark.
+- The answer view used a throwaway stub on port 8000 returning canned JSON, because this worktree has no venv or `.env` for the real backend. A not-found answer was not re-tested; it renders through the same component.
+- Not tested: a real screen reader, the reduced-motion setting, and a deliberate check for the first-paint flash (only that the class is present after a full load).
+- Gotcha: typing right after navigating, before hydration finished, was lost; wait a moment before typing in the box.
+
 No further implementation entries yet.
