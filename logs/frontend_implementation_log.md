@@ -118,4 +118,29 @@ Proxy:   Browser (:3000) ──same-origin──>  Next.js route handler ──s
 
 ---
 
+## 2026-10-05: Proxy route handler and wired question box (steps 4–6)
+
+**Plan.** The browser must not call FastAPI directly (see the CORS reference above). Add a Next.js route handler that validates the question, forwards it to FastAPI server-side and returns the result, then wire `QuestionBox` to it with loading, error and answer states.
+
+**Structure.**
+- `app/api/ask/route.ts`: `POST /api/ask`, the proxy to FastAPI `POST /ask`.
+- `frontend/.env.local` (git-ignored by the scaffold's `.env*` rule): `BACKEND_URL=http://127.0.0.1:8000`, server-only (no `NEXT_PUBLIC_` prefix).
+- `app/components/QuestionBox.tsx`: client component; form, loading message, error, answer and sources.
+
+**Content.**
+- Route handler order: check `BACKEND_URL` is set (500 "Server is not configured." if not), parse the JSON body (400 if invalid), validate `question` (non-blank string, at most 2000 chars, matching the FastAPI limit; 400 otherwise), forward the trimmed question, return the backend JSON.
+- `request.json()` throws on a bad body, so it sits in `try/catch`. The body is typed `unknown` and narrowed by hand; `typeof null === "object"` is why `body !== null` is checked.
+- Backend failures: non-OK response gives 502 ("could not answer"); unreachable backend or non-JSON body gives 502 ("unavailable"); `AbortSignal.timeout(60_000)` aborts a hung call with a `TimeoutError` and returns 504 ("took too long"). The backend's error body and the caught exception are never forwarded or logged (they can contain request details). Neither questions nor answers are logged.
+- 60 s timeout chosen because compound questions took about 18 s on Haiku; it is one constant (`BACKEND_TIMEOUT_MS`).
+- **Double submit.** Decision: block a second submit while one is in flight (button disabled, and the handler returns early if `loading`, because Enter in the input bypasses a disabled button). Cancel-and-replace suits typeahead, not an explicit button on a slow, paid LLM call: aborting in the browser does not stop the FastAPI work, so both requests would still be paid for. `AbortController` is the tool if a Cancel button is wanted later.
+- `QuestionBox`: submit clears the previous answer and error first so a stale result never sits beside a new question; `finally` always resets `loading`; the loading text and the button label change while waiting; `role="status"` and `role="alert"` for screen readers; sources shown only when the list is non-empty.
+
+**Result.**
+- Route tested with curl: valid question 200 (doc question returned `sources`; order question returned `sources: []`); blank, missing field, wrong type, non-JSON, `null` and over-length all 400; FastAPI stopped 502 in 0.01 s; fake backend returning 200 with non-JSON 502; fake backend that never answers 504 after 60.03 s.
+- Checked in the browser: loading message appears, answer and sources render, stopping FastAPI shows the error message, and pressing Enter twice sends one request.
+- Gotcha: a different app was already listening on port 3000 (`Cannot POST /api/ask`, Express-style). This project's server is on 3001; test against the right port.
+- Known gaps: the answer is Markdown but is shown as plain text with literal `**`; `sources` are the documents retrieved, not necessarily the ones the answer used; no authorization on the backend (see dev journal); the `/lookup` page is still a placeholder.
+
+---
+
 No further implementation entries yet.
