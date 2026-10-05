@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import MarkdownAnswer from "./MarkdownAnswer";
 
 type AskResult = {
   answer: string;
@@ -74,7 +75,7 @@ export default function QuestionBox() {
 
       {result && (
         <div className="mt-4">
-          <p className="whitespace-pre-wrap">{result.answer}</p>
+          <MarkdownAnswer>{result.answer}</MarkdownAnswer>
           {result.sources.length > 0 && (
             <div className="mt-4 text-sm text-zinc-600">
               <p className="font-medium">Sources</p>

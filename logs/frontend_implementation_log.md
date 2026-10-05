@@ -143,4 +143,27 @@ Proxy:   Browser (:3000) ──same-origin──>  Next.js route handler ──s
 
 ---
 
+## 2026-10-05: Render answers as Markdown
+
+**Plan.** The backend answer is Markdown but was shown in a `whitespace-pre-wrap` paragraph, so `**bold**` appeared literally. Render it with `react-markdown`, and treat the text as untrusted because it is LLM output built from documents and customer data.
+
+**Structure.**
+- `app/components/MarkdownAnswer.tsx` (new): wraps `ReactMarkdown` with `remark-gfm` and a `components` map of Tailwind classes. No `"use client"` needed (no state); it renders under the `QuestionBox` client boundary.
+- `app/components/QuestionBox.tsx`: the answer paragraph is replaced by `<MarkdownAnswer>`. Loading, error and sources are unchanged.
+- `package.json`: added `react-markdown` and `remark-gfm` (tables).
+
+**Content.**
+- Tailwind's preflight strips default styles, so headings, lists, code, tables and links are restyled in the `components` map instead of adding the typography plugin.
+- Safety: no `rehype-raw`, so raw HTML shows as inert text; `img` renders nothing (a markdown image makes the browser fetch any URL, a data-exfiltration route if a document contains an injection); links open with `target="_blank" rel="noopener noreferrer"`; react-markdown's URL sanitising drops `javascript:` hrefs.
+- Model headings (`#`, `##`) are rendered at h3/h4 size so the page's own h1 stays the top level.
+
+**Result.**
+- Browser (port 3002): a policy question rendered bold headings, bullets and italic source text with the Sources list; `ORD-9999` returned "no order with that ID" and no sources; an unreachable backend showed the red "assistant is unavailable" message.
+- A temporary `/mdtest` page confirmed tables, ordered lists and inline code; `<script>` and `<b>` appeared as literal text, the image did not render, and the `javascript:` link had no href.
+- `npm run lint` and `npm run build` pass. No automated tests: the frontend has no test setup.
+- Gotcha: a browser tool's form fill set the DOM value without updating React state, so the button stayed disabled; typing with the keyboard works.
+- Known gaps: `sources` are still the documents retrieved, not necessarily the ones used; no backend authorization (see dev journal); `/lookup` is still a placeholder. `npx tsc --noEmit` reports `LayoutProps` not found in `layout.tsx` (a Next-generated type, not from this change).
+
+---
+
 No further implementation entries yet.
