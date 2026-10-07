@@ -1,8 +1,13 @@
+import LookupBox from "@/app/components/LookupBox";
+
 export default function LookupPage() {
   return (
     <main className="mx-auto w-full max-w-3xl p-8">
       <h1 className="text-2xl font-semibold">Customer &amp; order lookup</h1>
-      <p className="mt-2 text-zinc-600 dark:text-zinc-400">Lookup form coming soon.</p>
+      <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+        Search by order ID, customer name, customer ID, phone or email.
+      </p>
+      <LookupBox />
     </main>
   );
 }

@@ -189,4 +189,27 @@ Proxy:   Browser (:3000) ──same-origin──>  Next.js route handler ──s
 - Not tested: a real screen reader, the reduced-motion setting, and a deliberate check for the first-paint flash (only that the class is present after a full load).
 - Gotcha: typing right after navigating, before hydration finished, was lost; wait a moment before typing in the box.
 
-No further implementation entries yet.
+## 2026-10-07: Customer lookup page
+
+**Plan.** Build the `/lookup` UI against the merged backend (`GET /lookup`, `GET /lookup/customers/{id}`): one search box, a details view for one match, a pick-list for several, and explicit loading, not-found and error states. The backend decides what the input is (order ID, customer ID, email, phone or name), so the UI has one field.
+
+**Structure.**
+- `app/api/lookup/route.ts` (new): POST proxy. Takes `{query}`, validates it (non-empty, at most 200 characters), calls `GET /lookup?q=` with a 15 s timeout, returns generic errors.
+- `app/api/lookup/customers/[customerId]/route.ts` (new): GET proxy for the detail endpoint. Checks `CUST-\d+` first; passes 404 through as "Customer not found."
+- `app/components/LookupBox.tsx` (new client component): input, button and all the states.
+- `app/components/CustomerDetails.tsx` (new): customer fields and orders with line items; exports the shared types.
+- `app/lookup/page.tsx`: placeholder replaced by `LookupBox`, with a hint listing the accepted inputs.
+
+**Content.**
+- The search text is sent in a POST body, not a URL, so names, emails and phones stay out of the page URL and browser history. The backend URL stays server-only (`BACKEND_URL`).
+- Search results are masked (email and phone), so a single match is followed straight away by a call to the detail endpoint; a pick from the list does the same.
+- States: loading (button disabled, "Looking up..."), error (red `role="alert"`), not found (a hint to try another input), one match (details), several (pick-list showing ID, account type, region and masked contact, since the two Grace Kims share a masked email). Double submits are blocked while a request is in flight.
+- Order prices are formatted as NZD. Nothing is logged or stored client-side.
+
+**Result.**
+- `npm run lint` and `npm run build` pass. No frontend test setup exists, so no automated tests were added.
+- Browser (port 3005) against the real FastAPI (port 8001, this worktree's code, Supabase data): name "Grace Kim" gave a two-person list and picking one showed details and `ORD-1003`; `ORD-1006` went straight to details; "Nobody Atall" showed not found; with the backend stopped, "The lookup is unavailable" appeared. Email, customer ID and the detail proxy's 400 for a bad ID were checked with curl only, not in the browser; phone search was not tried.
+- Not tested: the 504 timeout message, the light theme on this page, a screen reader, and a narrow viewport.
+- Backend tests were not re-run here: `pytest` isn't installed in the main checkout's venv.
+- Gotcha: port 8000 was already held by an older backend without `/lookup` (probably the main checkout's), so I ran this worktree's backend on 8001.
+- No authorization yet (decided to skip for now).
