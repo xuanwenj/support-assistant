@@ -128,3 +128,25 @@ Entry template: **Plan** (what and why) · **Structure** (files, functions, sign
 - For "Show me the orders for Grace Kim", Claude lists the two customers separately with their IDs and offers more detail; it does not ask which one is meant. Nothing is merged, so the prompt rule is met.
 - For the compound question (Grace Kim's partial bundle return vs. policy), the answer said document search found no policy on partial bundle return pricing, and asked which Grace Kim was meant. The earlier run found material to reason about. The live test still passes (it only checks that both tools were called). Not investigated: could be the prompt change, the duplicate customer, or model variation.
 - Live tests that mention "Grace Kim" now depend on `seed_test_data.sql` being loaded.
+
+---
+
+## 7. Lookup search backend (search.py, GET /lookup)
+
+**Plan.** The `/lookup` page has one text box. The backend works out what was typed, finds the matching customers, and lets the page load one customer's orders once they are picked. Classification is plain code, not the LLM, so names, emails and phones never go to a cloud API.
+
+**Structure.**
+- `search.py` (new): `classify_query(text)` → `(kind, value)`; `search_customers(text)` → `{"type", "customers"}`; `customer_summary` with `mask_email` / `mask_phone`.
+- `queries.py`: new `get_customers_by_name(name)` (case-insensitive exact match, returns every customer with that name).
+- `api.py`: `GET /lookup?q=` and `GET /lookup/customers/{customer_id}`, with pydantic response models.
+- `test_search.py` (new), plus new tests in `test_api.py` and `test_queries.py`.
+
+**Content.**
+- Classification order: `ORD-\d+` order ID, `CUST-\d+` customer ID (both case-insensitive, upper-cased), contains `@` email, only digits/space/`+-()` with at least 6 digits phone, otherwise name. `ORD-12A`, `ORD 1003` and `1003` fall through to name. Blank is `empty` and touches no lookup.
+- Every kind returns the same shape, a list of customers. An order ID resolves to its customer (`get_order` then `get_customer`); phone and name can return several.
+- `GET /lookup` returns `{"type", "customers": [...]}` where each customer is a summary: `customer_id, name, account_type, region, email_masked` (`g***@example.com`), `phone_masked` (`*** *** 0103`). Full email and phone only come from the detail endpoint. No match is `200` with an empty list; blank or over 200 chars is `422`; failures are a generic `502`. The query is not logged and not echoed in errors.
+- `GET /lookup/customers/{customer_id}` returns `{"customer": {...full fields}, "orders": [... with items]}`; the ID must match `^CUST-\d+$` (otherwise `422` before any query); unknown is `404`. `unit_price_charged` and dates serialize as strings (`"349.00"`, `"2026-07-01"`).
+- Python 3.9 in the venv, so models use `Optional[str]`, not `str | None`.
+
+**Result.** 66 tests offline (25 live skipped); the 29 live DB tests pass (`test_queries`, `test_search`). Through uvicorn against Supabase: `grace kim` returned both customers; `ORD-1006` returned CUST-006; `+64 21 555 0103` returned CUST-003; unknown email returned an empty list; blank `422`; detail for CUST-006 returned her order with `"189.00"`; unknown ID `404`; malformed ID `422`.
+**Known quirks.** The two Grace Kims' masked emails are identical (`g***@example.com`); the pick-list tells them apart by region and the last four phone digits. Name matching is exact (`Grace` finds nothing). No authorization on these endpoints, like `/ask`.

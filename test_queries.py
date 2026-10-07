@@ -55,6 +55,15 @@ class LiveQueryTests(unittest.TestCase):
         for raw in ("021 555 9999", "", "abc"):
             self.assertEqual(queries.get_customer_by_phone(raw), [], raw)
 
+    def test_get_customers_by_name_is_case_insensitive_and_returns_all(self):
+        for raw in ("Grace Kim", "grace kim", "  GRACE KIM "):
+            ids = [c["customer_id"] for c in queries.get_customers_by_name(raw)]
+            self.assertEqual(ids, ["CUST-003", "CUST-006"], raw)
+
+    def test_get_customers_by_name_is_exact_not_partial(self):
+        self.assertEqual(queries.get_customers_by_name("Grace"), [])
+        self.assertEqual(queries.get_customers_by_name("Nobody Here"), [])
+
     def test_get_orders_for_customer_includes_items(self):
         orders = queries.get_orders_for_customer("CUST-003")
 
