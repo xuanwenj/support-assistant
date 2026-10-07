@@ -95,6 +95,16 @@ def get_customer_by_email(email):
             )
             return cur.fetchone()
 
+def get_customers_by_name(name):
+    # Names are not unique, so this returns every customer with that exact name (any case).
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(
+                f"select {CUSTOMER_COLUMNS} from customers where lower(name) = lower(%s) order by customer_id",
+                (name.strip(),),
+            )
+            return cur.fetchall()
+
 def get_customer_by_phone(phone):
     # Phones are not unique (shared lines), so this returns a list.
     normalized = _normalize_phone(phone)
