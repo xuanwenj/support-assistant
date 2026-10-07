@@ -67,6 +67,21 @@ class ToolTests(unittest.TestCase):
             self.assertEqual(run_tool("get_order", {"order_id": "x"}), ("null", False))
             self.assertEqual(run_tool("get_orders_by_username", {"username": "x"}), ("[]", False))
 
+    def test_customer_lookup_tools_are_registered(self):
+        names = {s["name"] for s in TOOL_SCHEMAS}
+        self.assertTrue({"get_customer", "get_customer_by_email", "get_customer_by_phone",
+                         "get_orders_for_customer"} <= names)
+
+    def test_customer_not_found_results_serialize(self):
+        with patch.dict(TOOL_FUNCTIONS, {"get_customer": lambda customer_id: None,
+                                         "get_customer_by_email": lambda email: None,
+                                         "get_customer_by_phone": lambda phone: [],
+                                         "get_orders_for_customer": lambda customer_id: []}):
+            self.assertEqual(run_tool("get_customer", {"customer_id": "x"}), ("null", False))
+            self.assertEqual(run_tool("get_customer_by_email", {"email": "x"}), ("null", False))
+            self.assertEqual(run_tool("get_customer_by_phone", {"phone": "x"}), ("[]", False))
+            self.assertEqual(run_tool("get_orders_for_customer", {"customer_id": "x"}), ("[]", False))
+
     def test_unknown_tool_is_an_error_result(self):
         content, is_error = run_tool("drop_all_tables", {})
         self.assertTrue(is_error)
@@ -259,6 +274,29 @@ class LiveRouterTests(unittest.TestCase):
         used = self.tools_used(result)
         self.assertIn("get_orders_by_username", used)
         self.assertIn("search_documents", used)
+
+    def test_orders_by_email_use_a_customer_tool(self):
+        result = router.answer_question("What has grace.kim.dunedin@example.com ordered?")
+
+        used = self.tools_used(result)
+        self.assertTrue({"get_customer_by_email", "get_orders_for_customer"} & set(used))
+        self.assertIn("ORD-1006", result["answer"])
+        self.assertNotIn("ORD-1003", result["answer"])
+
+    def test_orders_by_phone_use_the_phone_tool(self):
+        result = router.answer_question("Show me the orders for the customer with phone +64 21 555 0103.")
+
+        self.assertIn("get_customer_by_phone", self.tools_used(result))
+        self.assertIn("ORD-1003", result["answer"])
+        self.assertNotIn("ORD-1006", result["answer"])
+
+    def test_shared_name_asks_which_customer(self):
+        result = router.answer_question("Show me the orders for Grace Kim.")
+
+        answer = result["answer"].lower()
+        self.assertIn("get_orders_by_username", self.tools_used(result))
+        self.assertTrue("cust-003" in answer and "cust-006" in answer)
+        self.assertTrue(any(w in answer for w in ("which", "several", "multiple", "two customers", "email", "phone")))
 
 
 if __name__ == "__main__":
