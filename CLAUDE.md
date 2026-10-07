@@ -9,7 +9,8 @@ Standing rules for working in this repo. See [ARCHITECTURE.md](ARCHITECTURE.md) 
   - Product/policy docs (manuals, contracts, service terms) → RAG over a vector DB.
   - Customer/order data → structured queries only (predefined lookup functions) against PostgreSQL (Supabase), **never RAG**. This data is transactional and needs to be exact, not similarity-retrieved.
 - Frontend is Next.js: question input, answer display with source citations, entry points for both features.
-- Multi-agent orchestration (CrewAI Researcher/Writer) is not committed to — deferred until the structured-query tool exists in Phase 2, and only added then if routing between the two tools actually needs it.
+- Routing between the two tools is a Claude tool-use loop (`router.py`): the model picks database lookup functions or document search per question and can chain them. It only calls predefined tools, never writes SQL.
+- Multi-agent orchestration (CrewAI Researcher/Writer) is not committed to — the structured-query tool now exists and the tool-use loop covers routing, so only add it if that stops being enough.
 
 ## Non-negotiables
 

@@ -3,7 +3,15 @@ from functools import lru_cache
 
 import chromadb
 
-from queries import get_order, get_orders_by_username, get_product
+from queries import (
+    get_customer,
+    get_customer_by_email,
+    get_customer_by_phone,
+    get_order,
+    get_orders_by_username,
+    get_orders_for_customer,
+    get_product,
+)
 from retrieval import retrieve_relevant_chunks
 
 
@@ -81,6 +89,77 @@ TOOL_SCHEMAS = [
         },
     },
     {
+        "name": "get_customer",
+        "description": (
+            "Look up one customer by exact customer ID (format CUST-001). Returns customer ID, "
+            "name, email, phone (may be null), account type ('retail' or 'trade') and region. "
+            "Returns null if no such customer exists. Use this when the question gives a "
+            "customer ID, or to get contact details for the customer_id on an order."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "customer_id": {"type": "string", "description": "Exact customer ID, e.g. CUST-003."},
+            },
+            "required": ["customer_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "get_customer_by_email",
+        "description": (
+            "Look up one customer by email address (case-insensitive exact match). Emails are "
+            "unique, so this returns a single customer (same fields as get_customer) or null "
+            "if no customer has that email. Use this when the question gives an email address."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "email": {"type": "string", "description": "Full email address, e.g. grace.kim@example.com."},
+            },
+            "required": ["email"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "get_customer_by_phone",
+        "description": (
+            "Find customers by phone number. Spacing, dashes and a +64 country code are "
+            "ignored, so '021 555 0103' and '+6421 555 0103' match the same customer. Phone "
+            "numbers are not unique, so this returns a list of customers (same fields as "
+            "get_customer), which is empty if nothing matches. If it returns several "
+            "customers, do not guess which one is meant. Use this when the question gives "
+            "a phone number."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "phone": {"type": "string", "description": "Phone number in any common format, e.g. 021 555 0103."},
+            },
+            "required": ["phone"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "get_orders_for_customer",
+        "description": (
+            "List all orders for one customer by exact customer ID (format CUST-001), oldest "
+            "first, each with its line items (product name, quantity, unit price actually "
+            "charged). Returns an empty list if the customer has no orders or does not exist. "
+            "Use this once you know the customer ID, for example after get_customer_by_email "
+            "or get_customer_by_phone, or when it is the only way to tell apart customers "
+            "who share a name."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "customer_id": {"type": "string", "description": "Exact customer ID, e.g. CUST-003."},
+            },
+            "required": ["customer_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "search_documents",
         "description": (
             "Semantic search over the company's written documents: customer FAQ, installation "
@@ -108,6 +187,10 @@ TOOL_FUNCTIONS = {
     "get_order": get_order,
     "get_orders_by_username": get_orders_by_username,
     "get_product": get_product,
+    "get_customer": get_customer,
+    "get_customer_by_email": get_customer_by_email,
+    "get_customer_by_phone": get_customer_by_phone,
+    "get_orders_for_customer": get_orders_for_customer,
     "search_documents": search_documents,
 }
 

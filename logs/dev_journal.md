@@ -203,7 +203,7 @@ This is what lets compound questions work without any special-casing: for "was G
 
 Implementation details (plan, structure, content, results) live in [implementation_log.md](implementation_log.md). This file only tracks the current step, decisions and problems.
 
-**Current step:** Phase 2, structured-query steps 1–5 done (driver, connection helper, query functions, tests, Claude tool-use router). Next: remaining lookup functions (customer by email/phone), update CLAUDE.md/ARCHITECTURE.md for the router, then the Next.js frontend (scaffolded; routes, nav and `QuestionBox` client component done; FastAPI `POST /ask` with sources done; proxy route handler `app/api/ask/route.ts` and the wired question box with answer and sources done and checked in the browser; Markdown rendering of answers done with `react-markdown`; light/dark theme toggle in the nav done; next: the `/lookup` page, authorization).
+**Current step:** Phase 2, structured-query steps 1–5 done (driver, connection helper, query functions, tests, Claude tool-use router). Remaining customer lookups (by ID, email, phone, orders for a customer) done and registered as router tools; `schema.sql` saved; CLAUDE.md/ARCHITECTURE.md updated for the router. Next: backend for the `/lookup` search box (see decisions), then the Next.js frontend, which is being built on a separate `ui_feature` branch (scaffolded; routes, nav and `QuestionBox` client component done; FastAPI `POST /ask` with sources done; proxy route handler `app/api/ask/route.ts` and the wired question box with answer and sources done and checked in the browser; Markdown rendering of answers done with `react-markdown`; light/dark theme toggle in the nav done; next: the `/lookup` page, authorization).
 
 **Decisions**
 
@@ -211,7 +211,9 @@ Implementation details (plan, structure, content, results) live in [implementati
 - RAG is exposed to the router as retrieval only (raw chunks). The standalone RAG script keeps its own generation step.
 - Ingestion and retrieval split into separate files so the router can import retrieval without re-running ingestion.
 - Lookup feature is for internal staff; lookups by name, email, phone (membership dropped).
-- Build 4 tools first (`get_order`, `get_orders_by_username`, `get_product`, document search); the other lookups wait until the loop is proven.
+- Build 4 tools first (`get_order`, `get_orders_by_username`, `get_product`, document search); the other lookups wait until the loop is proven. (Loop proven; the four customer lookups are now built.)
+- `/lookup` UI: one text box with a hint ("order ID, customer name, customer ID, phone, email"). The input type is detected in plain code, not by the LLM: `ORD-\d+` order ID, `CUST-\d+` customer ID, contains `@` email, mostly digits phone, otherwise a name. Several customers matching a name or phone get a pick-list before orders load. Names and phones are not unique; email is. Backend `classify_query` / `search` and `GET /lookup` are not built yet. Don't log the query (names, emails, phones).
+- Customer lookups return `region` but not `created_at`; phone matching ignores spacing, dashes and `+64`.
 - Manual tool-use loop with a 5-round cap rather than the SDK tool runner.
 - Router model set to Haiku 4.5 for now (cheaper and faster; live tests still pass).
 - Frontend: Next.js in `frontend/`, browser talks to a Next.js route handler that proxies to FastAPI (no CORS, backend URL stays server-only). Working style: user writes the code, Claude reviews and supplies snippets on request. CORS notes are in [frontend_implementation_log.md](frontend_implementation_log.md).
@@ -224,6 +226,7 @@ Implementation details (plan, structure, content, results) live in [implementati
 - Supabase direct connection is IPv6-only and didn't resolve → use the Session pooler connection string.
 - venv `pip` script has the old folder name baked in → use `python -m pip`; the shell's `python` can resolve to conda → call `.venv/bin/python`.
 - `get_orders_by_username` had several bugs (wrong column, ambiguous join column, closed cursor, returned one order) → fixed.
-- Schema and seed SQL aren't saved in the repo yet, so reseeding isn't reproducible.
+- Schema and seed SQL weren't saved in the repo → `schema.sql` (reconstructed) and `seed_test_data.sql` added; the base seed data still isn't saved, so a full reseed isn't reproducible yet.
+- Compound question (Grace Kim partial return vs. policy) now answers that no policy was found on partial bundle return pricing; earlier it found material. Cause unknown (prompt change, duplicate customer, or variance). Check by running it a few times.
 - **OPEN: no authorization on `POST /ask`.** `CLAUDE.md` requires authorization checks on customer/order data, but `api.py` has none, so anyone who can reach port 8000 can query any customer or order through the router. Fine only while bound to `127.0.0.1` in development. Needs a decision before anything is shared or deployed: who the staff users are, how they authenticate (e.g. Supabase Auth or a shared secret between the Next.js server and FastAPI as a minimum), and which accounts may see which customers. The checks must be enforced in the backend, not the frontend.
 - `sources` returned by `/ask` are documents retrieved, not necessarily documents the answer used (e.g. product-catalog.docx listed while the answer cited only the FAQ). Acceptable for now; revisit if it misleads.
